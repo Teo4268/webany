@@ -2,7 +2,6 @@ import requests
 import time
 import signal
 import sys
-import concurrent.futures
 from playwright.sync_api import sync_playwright
 
 API_URL = "https://engine.hyperbeam.com/v0/vm"
@@ -16,7 +15,7 @@ except FileNotFoundError:
     print("⚠️ File 'tokens.txt' không tồn tại. Sử dụng token mặc định.")
     TOKENS = []
 
-# Token thêm thủ công
+# Token thêm thủ công ở đây
 TOKENS += [
     "sk_live_Q2QodCQu_fYfSgykyVoLy4Bj4X1G132k0moZrSFw5s0",
     "sk_live_-FBDxjjgcXDsMdl1-WeenWOIth9iiKbs4AayQR3zcEs",
@@ -76,10 +75,17 @@ def ping_vm_headless(embed_url):
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
-            page.goto(embed_url, timeout=30000)  # 30s timeout
-            print(f"{Color.GREEN}✔ Headless loaded: {embed_url}{Color.END}")
-            time.sleep(5)  # Cho trang web có thời gian chạy JS
+            page.goto(embed_url, timeout=30000)
+            time.sleep(2)
+
+            # 👇 Giả lập người dùng để tránh bị timeout
+            page.mouse.move(200, 200)
+            page.mouse.click(200, 200)
+            page.keyboard.press("ArrowDown")
+            time.sleep(5)
+
             browser.close()
+            print(f"{Color.GREEN}✔ Headless interacted: {embed_url}{Color.END}")
     except Exception as e:
         print(f"{Color.RED}✘ Headless error on {embed_url}: {e}{Color.END}")
 
@@ -111,12 +117,11 @@ def main():
     for i, vm in enumerate(sessions, start=1):
         print(f"VM {i}: {vm['embed_url']}")
 
-    print(f"\n{Color.YELLOW}Starting headless browser loop every 10 seconds. Press Ctrl+C to stop and delete VMs.{Color.END}")
+    print(f"\n{Color.YELLOW}Starting headless interaction every 10 seconds. Press Ctrl+C to stop and delete VMs.{Color.END}")
 
     while True:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [executor.submit(ping_vm_headless, vm["embed_url"]) for vm in sessions]
-            concurrent.futures.wait(futures)
+        for vm in sessions:
+            ping_vm_headless(vm["embed_url"])
         time.sleep(10)
 
 if __name__ == "__main__":
